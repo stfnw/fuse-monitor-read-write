@@ -106,14 +106,15 @@ class MonitorReadWrite(Fuse):
 
         def __init__(self, path, flags, *mode):
             self.file = os.fdopen(os.open("." + path, flags, *mode), flag2mode(flags))
+            self.path = path
             self.fd = self.file.fileno()
 
         def read(self, length, offset):
-            print(f"TODO read at {offset=} of {length=}")
+            print(f"{self.path} read at {offset=} of {length=}")
             return os.pread(self.fd, length, offset)
 
         def write(self, buf, offset):
-            print(f"TODO write at {offset=} of {buf=}")
+            print(f"{self.path} write at {offset=} of {buf=}")
             return os.pwrite(self.fd, buf, offset)
 
         def release(self, flags):
