@@ -41,7 +41,10 @@ class MonitorReadWrite(Fuse):
 
     def __init__(self, *args, **kw):
         Fuse.__init__(self, *args, **kw)
-        self.root = "/"
+        # Options taken from https://github.com/rflament/loggedfs/blob/82aba9a93489797026ad1a37b637823ece4a7093/src/loggedfs.cpp#L771C1-L771C104
+        self.fuse_args.add("nonempty")
+        self.fuse_args.add("use_ino")
+        self.fuse_args.add("atomic_o_trunc")
 
     def getattr(self, path):
         return os.lstat("." + path)
@@ -96,7 +99,8 @@ class MonitorReadWrite(Fuse):
         return os.statvfs(".")
 
     def fsinit(self):
-        os.chdir(self.root)
+        os.fchdir(self.savedrootfd)
+        os.close(self.savedrootfd)
 
     class MonitorReadWriteFile(object):
 
@@ -105,9 +109,11 @@ class MonitorReadWrite(Fuse):
             self.fd = self.file.fileno()
 
         def read(self, length, offset):
+            print(f"TODO read at {offset=} of {length=}")
             return os.pread(self.fd, length, offset)
 
         def write(self, buf, offset):
+            print(f"TODO write at {offset=} of {buf=}")
             return os.pwrite(self.fd, buf, offset)
 
         def release(self, flags):
@@ -134,6 +140,7 @@ class MonitorReadWrite(Fuse):
         def ftruncate(self, len):
             self.file.truncate(len)
 
+        # ignore
         # def lock(self, cmd, owner, **kw):
 
     def main(self, *a, **kw):
@@ -146,20 +153,21 @@ def main():
     usage = """TODO""" + Fuse.fusage
 
     server = MonitorReadWrite(
-        version="%prog " + fuse.__version__, usage=usage, dash_s_do="setsingle"
+        version="%prog " + fuse.__version__,
+        usage=usage,
+        dash_s_do="setsingle",
     )
 
-    server.parser.add_option(
-        mountopt="root",
-        metavar="PATH",
-        default="/",
-        help="Mirror filesystem from under PATH [default: %default]",
-    )
     server.parse(values=server, errex=1)
 
     try:
         if server.fuse_args.mount_expected():
-            os.chdir(server.root)
+            os.chdir(server.fuse_args.mountpoint)
+            # This trick with savefd allows mounting over an existing dir
+            # (compared to having to create a new directory only for the
+            # mountpoint). It is taken from
+            # https://github.com/rflament/loggedfs/blob/82aba9a93489797026ad1a37b637823ece4a7093/src/loggedfs.cpp#L953
+            server.savedrootfd = os.open(".", 0)
     except OSError:
         print("Can't enter root of underlying filesystem", file=sys.stderr)
         sys.exit(1)
