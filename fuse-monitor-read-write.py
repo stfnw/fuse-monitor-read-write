@@ -14,10 +14,10 @@
 # Therefore, this project as a whole is licensed under GNU LGPL as well.
 ################################################################################
 
-import os, sys
-from errno import *
-from stat import *
-import fcntl
+import errno
+import os
+import stat
+import sys
 
 import fuse
 from fuse import Fuse
@@ -45,6 +45,7 @@ class MonitorReadWrite(Fuse):
         self.fuse_args.add("nonempty")
         self.fuse_args.add("use_ino")
         self.fuse_args.add("atomic_o_trunc")
+        self.file_class = MonitorReadWriteFile
 
         self.csv_files = {}
 
@@ -53,7 +54,7 @@ class MonitorReadWrite(Fuse):
             base = path.removesuffix(".csv")
             if len(base) > 1 and os.path.isfile("." + base):
                 st = fuse.Stat()
-                st.st_mode = S_IFREG | 0o444
+                st.st_mode = stat.S_IFREG | 0o444
                 st.st_nlink = 1
                 st.st_size = len(self.csv_files[base]) if base in self.csv_files else 0
                 return st
@@ -62,7 +63,7 @@ class MonitorReadWrite(Fuse):
     def readlink(self, path):
         return os.readlink("." + path)
 
-    def readdir(self, path, offset):
+    def readdir(self, path, _offset):
         for e in os.listdir("." + path):
             yield fuse.Direntry(e)
             if os.path.isfile(e):
@@ -89,10 +90,9 @@ class MonitorReadWrite(Fuse):
     def chown(self, path, user, group):
         os.chown("." + path, user, group)
 
-    def truncate(self, path, len):
-        f = open("." + path, "a")
-        f.truncate(len)
-        f.close()
+    def truncate(self, path, length):
+        with open("." + path, "a") as f:
+            f.truncate(length)
 
     def mknod(self, path, mode, dev):
         os.mknod("." + path, mode, dev)
@@ -105,7 +105,7 @@ class MonitorReadWrite(Fuse):
 
     def access(self, path, mode):
         if not os.access("." + path, mode):
-            return -EACCES
+            return -errno.EACCES
 
     def statfs(self):
         return os.statvfs(".")
@@ -114,51 +114,51 @@ class MonitorReadWrite(Fuse):
         os.fchdir(self.savedrootfd)
         os.close(self.savedrootfd)
 
-    class MonitorReadWriteFile(object):
-
-        def __init__(self, path, flags, *mode):
-            self.file = os.fdopen(os.open("." + path, flags, *mode), flag2mode(flags))
-            self.path = path
-            self.fd = self.file.fileno()
-
-        def read(self, length, offset):
-            print(f"{self.path} read at {offset=} of {length=}")
-            return os.pread(self.fd, length, offset)
-
-        def write(self, buf, offset):
-            print(f"{self.path} write at {offset=} of {buf=}")
-            return os.pwrite(self.fd, buf, offset)
-
-        def release(self, flags):
-            self.file.close()
-
-        def _fflush(self):
-            if "w" in self.file.mode or "a" in self.file.mode:
-                self.file.flush()
-
-        def fsync(self, isfsyncfile):
-            self._fflush()
-            if isfsyncfile and hasattr(os, "fdatasync"):
-                os.fdatasync(self.fd)
-            else:
-                os.fsync(self.fd)
-
-        def flush(self):
-            self._fflush()
-            os.close(os.dup(self.fd))
-
-        def fgetattr(self):
-            return os.fstat(self.fd)
-
-        def ftruncate(self, len):
-            self.file.truncate(len)
-
-        # ignore
-        # def lock(self, cmd, owner, **kw):
-
     def main(self, *a, **kw):
-        self.file_class = self.MonitorReadWriteFile
         return Fuse.main(self, *a, **kw)
+
+
+class MonitorReadWriteFile:
+
+    def __init__(self, path, flags, *mode):
+        self.file = os.fdopen(os.open("." + path, flags, *mode), flag2mode(flags))
+        self.path = path
+        self.fd = self.file.fileno()
+
+    def read(self, length, offset):
+        print(f"{self.path} read at {offset=} of {length=}")
+        return os.pread(self.fd, length, offset)
+
+    def write(self, buf, offset):
+        print(f"{self.path} write at {offset=} of {buf=}")
+        return os.pwrite(self.fd, buf, offset)
+
+    def release(self, _flags):
+        self.file.close()
+
+    def _fflush(self):
+        if "w" in self.file.mode or "a" in self.file.mode:
+            self.file.flush()
+
+    def fsync(self, isfsyncfile):
+        self._fflush()
+        if isfsyncfile and hasattr(os, "fdatasync"):
+            os.fdatasync(self.fd)
+        else:
+            os.fsync(self.fd)
+
+    def flush(self):
+        self._fflush()
+        os.close(os.dup(self.fd))
+
+    def fgetattr(self):
+        return os.fstat(self.fd)
+
+    def ftruncate(self, length):
+        self.file.truncate(length)
+
+    # ignore
+    # def lock(self, cmd, owner, **kw):
 
 
 def main():
