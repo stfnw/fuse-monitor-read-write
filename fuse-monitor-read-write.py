@@ -22,12 +22,14 @@ import sys
 import fuse
 from fuse import Fuse
 
+from typing import Any, Generator
+
 
 fuse.fuse_python_api = (0, 2)
 fuse.feature_assert("stateful_files", "has_init")
 
 
-def flag2mode(flags):
+def flag2mode(flags: int) -> str:
     md = {os.O_RDONLY: "rb", os.O_WRONLY: "wb", os.O_RDWR: "wb+"}
     m = md[flags & (os.O_RDONLY | os.O_WRONLY | os.O_RDWR)]
 
@@ -39,7 +41,7 @@ def flag2mode(flags):
 
 class MonitorReadWrite(Fuse):
 
-    def __init__(self, *args, **kw):
+    def __init__(self, *args: Any, **kw: Any) -> None:
         Fuse.__init__(self, *args, **kw)
         # Options taken from https://github.com/rflament/loggedfs/blob/82aba9a93489797026ad1a37b637823ece4a7093/src/loggedfs.cpp#L771C1-L771C104
         self.fuse_args.add("nonempty")
@@ -47,9 +49,9 @@ class MonitorReadWrite(Fuse):
         self.fuse_args.add("atomic_o_trunc")
         self.file_class = MonitorReadWriteFile
 
-        self.csv_files = {}
+        self.csv_files: dict[str, bytes] = {}
 
-    def getattr(self, path):
+    def getattr(self, path: str) -> Any:
         if path.endswith(".csv"):
             base = path.removesuffix(".csv")
             if len(base) > 1 and os.path.isfile("." + base):
@@ -60,109 +62,108 @@ class MonitorReadWrite(Fuse):
                 return st
         return os.lstat("." + path)
 
-    def readlink(self, path):
+    def readlink(self, path: str) -> str:
         return os.readlink("." + path)
 
-    def readdir(self, path, _offset):
+    def readdir(self, path: str, _offset: int) -> Generator[fuse.Direntry]:
         for e in os.listdir("." + path):
             yield fuse.Direntry(e)
             if os.path.isfile(e):
                 yield fuse.Direntry(e + ".csv")
 
-    def unlink(self, path):
+    def unlink(self, path: str) -> None:
         os.unlink("." + path)
 
-    def rmdir(self, path):
+    def rmdir(self, path: str) -> None:
         os.rmdir("." + path)
 
-    def symlink(self, path, path1):
+    def symlink(self, path: str, path1: str) -> None:
         os.symlink(path, "." + path1)
 
-    def rename(self, path, path1):
+    def rename(self, path: str, path1: str) -> None:
         os.rename("." + path, "." + path1)
 
-    def link(self, path, path1):
+    def link(self, path: str, path1: str) -> None:
         os.link("." + path, "." + path1)
 
-    def chmod(self, path, mode):
+    def chmod(self, path: str, mode: int) -> None:
         os.chmod("." + path, mode)
 
-    def chown(self, path, user, group):
+    def chown(self, path: str, user: int, group: int) -> None:
         os.chown("." + path, user, group)
 
-    def truncate(self, path, length):
+    def truncate(self, path: str, length: int) -> None:
         with open("." + path, "a") as f:
             f.truncate(length)
 
-    def mknod(self, path, mode, dev):
+    def mknod(self, path: str, mode: int, dev: Any) -> None:
         os.mknod("." + path, mode, dev)
 
-    def mkdir(self, path, mode):
+    def mkdir(self, path: str, mode: int) -> None:
         os.mkdir("." + path, mode)
 
-    def utime(self, path, times):
+    def utime(self, path: str, times: Any) -> None:
         os.utime("." + path, times)
 
-    def access(self, path, mode):
+    def access(self, path: str, mode: int) -> Any:
         if not os.access("." + path, mode):
             return -errno.EACCES
 
-    def statfs(self):
+    def statfs(self) -> Any:
         return os.statvfs(".")
 
-    def fsinit(self):
+    def fsinit(self) -> None:
         os.fchdir(self.savedrootfd)
         os.close(self.savedrootfd)
 
-    def main(self, *a, **kw):
+    def main(self, *a: Any, **kw: Any) -> Any:
         return Fuse.main(self, *a, **kw)
 
 
 class MonitorReadWriteFile:
 
-    def __init__(self, path, flags, *mode):
+    def __init__(self, path: str, flags: int, *mode: Any) -> None:
         self.file = os.fdopen(os.open("." + path, flags, *mode), flag2mode(flags))
         self.path = path
         self.fd = self.file.fileno()
 
-    def read(self, length, offset):
+    def read(self, length: int, offset: int) -> bytes:
         print(f"{self.path} read at {offset=} of {length=}")
         return os.pread(self.fd, length, offset)
 
-    def write(self, buf, offset):
+    def write(self, buf: bytes, offset: int) -> int:
         print(f"{self.path} write at {offset=} of {buf=}")
         return os.pwrite(self.fd, buf, offset)
 
-    def release(self, _flags):
+    def release(self, _flags: int) -> None:
         self.file.close()
 
-    def _fflush(self):
+    def _fflush(self) -> None:
         if "w" in self.file.mode or "a" in self.file.mode:
             self.file.flush()
 
-    def fsync(self, isfsyncfile):
+    def fsync(self, isfsyncfile: Any) -> None:
         self._fflush()
         if isfsyncfile and hasattr(os, "fdatasync"):
             os.fdatasync(self.fd)
         else:
             os.fsync(self.fd)
 
-    def flush(self):
+    def flush(self) -> None:
         self._fflush()
         os.close(os.dup(self.fd))
 
-    def fgetattr(self):
+    def fgetattr(self) -> os.stat_result:
         return os.fstat(self.fd)
 
-    def ftruncate(self, length):
+    def ftruncate(self, length: int) -> None:
         self.file.truncate(length)
 
     # ignore
     # def lock(self, cmd, owner, **kw):
 
 
-def main():
-
+def main() -> None:
     usage = """TODO""" + Fuse.fusage
 
     server = MonitorReadWrite(
