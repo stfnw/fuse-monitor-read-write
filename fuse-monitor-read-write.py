@@ -46,7 +46,17 @@ class MonitorReadWrite(Fuse):
         self.fuse_args.add("use_ino")
         self.fuse_args.add("atomic_o_trunc")
 
+        self.csv_files = {}
+
     def getattr(self, path):
+        if path.endswith(".csv"):
+            base = path.removesuffix(".csv")
+            if len(base) > 1 and os.path.isfile("." + base):
+                st = fuse.Stat()
+                st.st_mode = S_IFREG | 0o444
+                st.st_nlink = 1
+                st.st_size = len(self.csv_files[base]) if base in self.csv_files else 0
+                return st
         return os.lstat("." + path)
 
     def readlink(self, path):
@@ -55,6 +65,8 @@ class MonitorReadWrite(Fuse):
     def readdir(self, path, offset):
         for e in os.listdir("." + path):
             yield fuse.Direntry(e)
+            if os.path.isfile(e):
+                yield fuse.Direntry(e + ".csv")
 
     def unlink(self, path):
         os.unlink("." + path)
