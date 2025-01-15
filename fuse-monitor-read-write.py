@@ -18,6 +18,7 @@ import errno
 import os
 import stat
 import sys
+from threading import Lock
 
 import fuse
 from fuse import Fuse
@@ -29,6 +30,7 @@ fuse.fuse_python_api = (0, 2)
 fuse.feature_assert("stateful_files", "has_init")
 
 
+lock = Lock()
 csv_files: dict[str, bytes] = {}
 
 
@@ -60,7 +62,8 @@ class MonitorReadWrite(Fuse):
                 st.st_mode = stat.S_IFREG | 0o444
                 st.st_nlink = 1
                 global csv_files
-                st.st_size = len(csv_files[base]) if base in csv_files else 0
+                with lock:
+                    st.st_size = len(csv_files[base]) if base in csv_files else 0
                 return st
         return os.lstat("." + path)
 
@@ -133,29 +136,37 @@ class MonitorReadWriteFile:
             if len(base) > 1 and os.path.isfile("." + base):
                 self.is_generated_csv = True
                 self.pathbase = base
-                csv_files[base] = b""
+                with lock:
+                    if base not in csv_files:
+                        csv_files[base] = b""
         else:
             self.is_generated_csv = False
-            csv_files[path] = b""
+            with lock:
+                if path not in csv_files:
+                    csv_files[path] = b""
             self.file = os.fdopen(os.open("." + path, flags, *mode), flag2mode(flags))
             self.fd = self.file.fileno()
 
     def read(self, length: int, offset: int) -> bytes:
         global csv_files
         if self.is_generated_csv:
-            return csv_files[self.pathbase]
-        csv_files[self.path] += f"{self.path} read at {offset=} of {length=}".encode(
-            "utf8"
-        )
+            with lock:
+                tmp = csv_files[self.pathbase]
+            return tmp
+        with lock:
+            csv_files[
+                self.path
+            ] += f"{self.path} read at {offset=} of {length=}\n".encode("utf8")
         return os.pread(self.fd, length, offset)
 
     def write(self, buf: bytes, offset: int) -> int:
         global csv_files
         if self.is_generated_csv:
             return 0  # Silently ignore writes.
-        csv_files[self.path] += f"{self.path} write at {offset=} of {buf=}".encode(
-            "utf8"
-        )
+        with lock:
+            csv_files[
+                self.path
+            ] += f"{self.path} write at {offset=} of length={len(buf)}\n".encode("utf8")
         return os.pwrite(self.fd, buf, offset)
 
     def release(self, _flags: int) -> None:
