@@ -29,6 +29,9 @@ fuse.fuse_python_api = (0, 2)
 fuse.feature_assert("stateful_files", "has_init")
 
 
+csv_files: dict[str, bytes] = {}
+
+
 def flag2mode(flags: int) -> str:
     md = {os.O_RDONLY: "rb", os.O_WRONLY: "wb", os.O_RDWR: "wb+"}
     m = md[flags & (os.O_RDONLY | os.O_WRONLY | os.O_RDWR)]
@@ -49,8 +52,6 @@ class MonitorReadWrite(Fuse):
         self.fuse_args.add("atomic_o_trunc")
         self.file_class = MonitorReadWriteFile
 
-        self.csv_files: dict[str, bytes] = {}
-
     def getattr(self, path: str) -> Any:
         if path.endswith(".csv"):
             base = path.removesuffix(".csv")
@@ -58,7 +59,8 @@ class MonitorReadWrite(Fuse):
                 st = fuse.Stat()
                 st.st_mode = stat.S_IFREG | 0o444
                 st.st_nlink = 1
-                st.st_size = len(self.csv_files[base]) if base in self.csv_files else 0
+                global csv_files
+                st.st_size = len(csv_files[base]) if base in csv_files else 0
                 return st
         return os.lstat("." + path)
 
@@ -123,26 +125,53 @@ class MonitorReadWrite(Fuse):
 class MonitorReadWriteFile:
 
     def __init__(self, path: str, flags: int, *mode: Any) -> None:
-        self.file = os.fdopen(os.open("." + path, flags, *mode), flag2mode(flags))
+        global csv_files
         self.path = path
-        self.fd = self.file.fileno()
+
+        if self.path.endswith(".csv"):
+            base = path.removesuffix(".csv")
+            if len(base) > 1 and os.path.isfile("." + base):
+                self.is_generated_csv = True
+                self.pathbase = base
+                csv_files[base] = b""
+        else:
+            self.is_generated_csv = False
+            csv_files[path] = b""
+            self.file = os.fdopen(os.open("." + path, flags, *mode), flag2mode(flags))
+            self.fd = self.file.fileno()
 
     def read(self, length: int, offset: int) -> bytes:
-        print(f"{self.path} read at {offset=} of {length=}")
+        global csv_files
+        if self.is_generated_csv:
+            return csv_files[self.pathbase]
+        csv_files[self.path] += f"{self.path} read at {offset=} of {length=}".encode(
+            "utf8"
+        )
         return os.pread(self.fd, length, offset)
 
     def write(self, buf: bytes, offset: int) -> int:
-        print(f"{self.path} write at {offset=} of {buf=}")
+        global csv_files
+        if self.is_generated_csv:
+            return 0  # Silently ignore writes.
+        csv_files[self.path] += f"{self.path} write at {offset=} of {buf=}".encode(
+            "utf8"
+        )
         return os.pwrite(self.fd, buf, offset)
 
     def release(self, _flags: int) -> None:
+        if self.is_generated_csv:
+            return  # Silently ignore.
         self.file.close()
 
     def _fflush(self) -> None:
+        if self.is_generated_csv:
+            return  # Silently ignore.
         if "w" in self.file.mode or "a" in self.file.mode:
             self.file.flush()
 
     def fsync(self, isfsyncfile: Any) -> None:
+        if self.is_generated_csv:
+            return  # Silently ignore.
         self._fflush()
         if isfsyncfile and hasattr(os, "fdatasync"):
             os.fdatasync(self.fd)
@@ -150,13 +179,19 @@ class MonitorReadWriteFile:
             os.fsync(self.fd)
 
     def flush(self) -> None:
+        if self.is_generated_csv:
+            return  # Silently ignore.
         self._fflush()
         os.close(os.dup(self.fd))
 
     def fgetattr(self) -> os.stat_result:
+        if self.is_generated_csv:
+            return os.stat(self.pathbase)
         return os.fstat(self.fd)
 
     def ftruncate(self, length: int) -> None:
+        if self.is_generated_csv:
+            return  # Silently ignore.
         self.file.truncate(length)
 
     # ignore
