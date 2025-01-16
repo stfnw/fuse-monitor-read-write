@@ -61,7 +61,6 @@ class MonitorReadWrite(Fuse):
                 st = fuse.Stat()
                 st.st_mode = stat.S_IFREG | 0o444
                 st.st_nlink = 1
-                global csv_files
                 with lock:
                     st.st_size = len(csv_files[base]) if base in csv_files else 0
                 return st
@@ -128,7 +127,6 @@ class MonitorReadWrite(Fuse):
 class MonitorReadWriteFile:
 
     def __init__(self, path: str, flags: int, *mode: Any) -> None:
-        global csv_files
         self.path = path
 
         if self.path.endswith(".csv"):
@@ -148,25 +146,23 @@ class MonitorReadWriteFile:
             self.fd = self.file.fileno()
 
     def read(self, length: int, offset: int) -> bytes:
-        global csv_files
         if self.is_generated_csv:
             with lock:
                 tmp = csv_files[self.pathbase]
             return tmp
         with lock:
-            csv_files[
-                self.path
-            ] += f"{self.path} read at {offset=} of {length=}\n".encode("utf8")
+            csv_files[self.path] += to_csv(
+                ["read", self.path, str(offset), str(length)]
+            )
         return os.pread(self.fd, length, offset)
 
     def write(self, buf: bytes, offset: int) -> int:
-        global csv_files
         if self.is_generated_csv:
             return 0  # Silently ignore writes.
         with lock:
-            csv_files[
-                self.path
-            ] += f"{self.path} write at {offset=} of length={len(buf)}\n".encode("utf8")
+            csv_files[self.path] += to_csv(
+                ["write", self.path, str(offset), str(len(buf))]
+            )
         return os.pwrite(self.fd, buf, offset)
 
     def release(self, _flags: int) -> None:
@@ -207,6 +203,15 @@ class MonitorReadWriteFile:
 
     # ignore
     # def lock(self, cmd, owner, **kw):
+
+
+def to_csv(lst: list[str]) -> bytes:
+    res = ['"' + escape_quotes(s) + '"' for s in lst]
+    return (",".join(res) + "\n").encode("utf8")
+
+
+def escape_quotes(s: str) -> str:
+    return s.replace('"', '\\"')
 
 
 def main() -> None:
