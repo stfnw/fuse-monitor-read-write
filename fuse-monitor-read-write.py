@@ -129,21 +129,23 @@ class MonitorReadWriteFile:
     def __init__(self, path: str, flags: int, *mode: Any) -> None:
         self.path = path
 
-        if self.path.endswith(".csv"):
+        if path.endswith(".csv"):
             base = path.removesuffix(".csv")
             if len(base) > 1 and os.path.isfile("." + base):
                 self.is_generated_csv = True
                 self.pathbase = base
-                with lock:
-                    if base not in csv_files:
-                        csv_files[base] = b""
+                path = base
+
         else:
             self.is_generated_csv = False
-            with lock:
-                if path not in csv_files:
-                    csv_files[path] = b""
             self.file = os.fdopen(os.open("." + path, flags, *mode), flag2mode(flags))
             self.fd = self.file.fileno()
+
+        with lock:
+            if path not in csv_files:
+                csv_files[path] = to_csv(
+                    ["AccessDirection", "Filepath", "Offset", "Length"]
+                )
 
     def read(self, length: int, offset: int) -> bytes:
         if self.is_generated_csv:
