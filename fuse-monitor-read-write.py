@@ -146,6 +146,11 @@ class MonitorReadWriteFile:
                 csv_files[path] = to_csv(
                     ["AccessDirection", "Filepath", "Offset", "Length"]
                 )
+                # TODO remove filepath column (take from filename)
+                # TODO add total filesize column
+                # TODO add timestamp column
+                # TODO add pid column
+                # TODO add program name column
 
     def read(self, length: int, offset: int) -> bytes:
         if self.is_generated_csv:
