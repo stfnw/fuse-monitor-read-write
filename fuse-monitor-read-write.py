@@ -150,7 +150,7 @@ class MonitorReadWriteFile:
     def read(self, length: int, offset: int) -> bytes:
         if self.is_generated_csv:
             with lock:
-                tmp = csv_files[self.pathbase]
+                tmp = csv_files[self.pathbase][offset:offset+length]
             return tmp
         with lock:
             csv_files[self.path] += to_csv(
