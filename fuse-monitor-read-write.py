@@ -145,17 +145,25 @@ class MonitorReadWriteFile:
         with lock:
             if path not in csv_files:
                 csv_files[path] = to_csv(
-                    ["Time", "AccessDirection", "Offset", "Length", "Filesize"]
+                    [
+                        "Time",
+                        "AccessDirection",
+                        "Offset",
+                        "Length",
+                        "Filesize",
+                        "ProcessID",
+                        "ProcessName",
+                    ]
                 )
-                # TODO add pid column
-                # TODO add program name column
 
     def read(self, length: int, offset: int) -> bytes:
         if self.is_generated_csv:
             with lock:
                 tmp = csv_files[self.pathbase][offset : offset + length]
             return tmp
+        # TODO refactor out of lock (also below)
         with lock:
+            (pid, pname) = get_process_id_name()
             csv_files[self.path] += to_csv(
                 [
                     get_timestamp(),
@@ -163,6 +171,8 @@ class MonitorReadWriteFile:
                     str(offset),
                     str(length),
                     str(os.fstat(self.fd).st_size),
+                    str(pid),
+                    pname,
                 ]
             )
         return os.pread(self.fd, length, offset)
@@ -171,6 +181,7 @@ class MonitorReadWriteFile:
         if self.is_generated_csv:
             return 0  # Silently ignore writes.
         with lock:
+            (pid, pname) = get_process_id_name()
             csv_files[self.path] += to_csv(
                 [
                     get_timestamp(),
@@ -178,6 +189,8 @@ class MonitorReadWriteFile:
                     str(offset),
                     str(len(buf)),
                     str(os.fstat(self.fd).st_size),
+                    str(pid),
+                    pname,
                 ]
             )
         return os.pwrite(self.fd, buf, offset)
@@ -233,6 +246,13 @@ def escape_quotes(s: str) -> str:
 
 def get_timestamp() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def get_process_id_name() -> tuple[int, str]:
+    pid = fuse.FuseGetContext()["pid"]
+    with open(f"/proc/{pid}/comm", "r") as f:
+        pname = f.read().strip()
+    return (pid, pname)
 
 
 def main() -> None:
