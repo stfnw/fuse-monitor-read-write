@@ -144,10 +144,8 @@ class MonitorReadWriteFile:
         with lock:
             if path not in csv_files:
                 csv_files[path] = to_csv(
-                    ["AccessDirection", "Filepath", "Offset", "Length"]
+                    ["AccessDirection", "Offset", "Length", "Filesize"]
                 )
-                # TODO remove filepath column (take from filename)
-                # TODO add total filesize column
                 # TODO add timestamp column
                 # TODO add pid column
                 # TODO add program name column
@@ -155,11 +153,11 @@ class MonitorReadWriteFile:
     def read(self, length: int, offset: int) -> bytes:
         if self.is_generated_csv:
             with lock:
-                tmp = csv_files[self.pathbase][offset:offset+length]
+                tmp = csv_files[self.pathbase][offset : offset + length]
             return tmp
         with lock:
             csv_files[self.path] += to_csv(
-                ["read", self.path, str(offset), str(length)]
+                ["read", str(offset), str(length), str(os.fstat(self.fd).st_size)]
             )
         return os.pread(self.fd, length, offset)
 
@@ -168,7 +166,7 @@ class MonitorReadWriteFile:
             return 0  # Silently ignore writes.
         with lock:
             csv_files[self.path] += to_csv(
-                ["write", self.path, str(offset), str(len(buf))]
+                ["write", str(offset), str(len(buf)), str(os.fstat(self.fd).st_size)]
             )
         return os.pwrite(self.fd, buf, offset)
 
