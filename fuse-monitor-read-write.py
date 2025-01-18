@@ -14,11 +14,12 @@
 # Therefore, this project as a whole is licensed under GNU LGPL as well.
 ################################################################################
 
+from threading import Lock
+import datetime
 import errno
 import os
 import stat
 import sys
-from threading import Lock
 
 import fuse
 from fuse import Fuse
@@ -144,9 +145,8 @@ class MonitorReadWriteFile:
         with lock:
             if path not in csv_files:
                 csv_files[path] = to_csv(
-                    ["AccessDirection", "Offset", "Length", "Filesize"]
+                    ["Time", "AccessDirection", "Offset", "Length", "Filesize"]
                 )
-                # TODO add timestamp column
                 # TODO add pid column
                 # TODO add program name column
 
@@ -157,7 +157,13 @@ class MonitorReadWriteFile:
             return tmp
         with lock:
             csv_files[self.path] += to_csv(
-                ["read", str(offset), str(length), str(os.fstat(self.fd).st_size)]
+                [
+                    get_timestamp(),
+                    "read",
+                    str(offset),
+                    str(length),
+                    str(os.fstat(self.fd).st_size),
+                ]
             )
         return os.pread(self.fd, length, offset)
 
@@ -166,7 +172,13 @@ class MonitorReadWriteFile:
             return 0  # Silently ignore writes.
         with lock:
             csv_files[self.path] += to_csv(
-                ["write", str(offset), str(len(buf)), str(os.fstat(self.fd).st_size)]
+                [
+                    get_timestamp(),
+                    "write",
+                    str(offset),
+                    str(len(buf)),
+                    str(os.fstat(self.fd).st_size),
+                ]
             )
         return os.pwrite(self.fd, buf, offset)
 
@@ -217,6 +229,10 @@ def to_csv(lst: list[str]) -> bytes:
 
 def escape_quotes(s: str) -> str:
     return s.replace('"', '\\"')
+
+
+def get_timestamp() -> str:
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
 def main() -> None:
