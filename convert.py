@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from dataclasses import dataclass
 from typing import Generator
+import csv
 
 
 def main():
@@ -16,29 +17,31 @@ def main():
     args = parser.parse_args()
 
     with open(args.infile, "r") as f:
-        data = f.read()
+        data = [dict(d) for d in csv.DictReader(f, delimiter=",", quotechar='"')]
+
+    filesize = max(int(d["Filesize"], 10) for d in data)
+
+    processes = sorted(
+        list(set(f"{d['ProcessName']} ({d['ProcessID']})" for d in data))
+    )
+
+    print(filesize)
+    print(processes)
+
+@dataclass
+class Range:
+    offset: int
+    length: int
+
+
+@dataclass
+class Pixel:
+    x: int
+    y: int
+    count: int
 
 
 def tmp():
-    # TODO replace example data with actual data read from a CSV
-    filename = "/debian-live-12.8.0-amd64-xfce.iso"
-    filesize = 3188801536
-    data = [
-        [0, 16384],
-        [524288, 4096],
-    ]
-
-    @dataclass
-    class Range:
-        offset: int
-        length: int
-
-    @dataclass
-    class Pixel:
-        x: int
-        y: int
-        count: int
-
     length = 64
 
     img = np.zeros(shape=(length, length), dtype=np.uint64)
