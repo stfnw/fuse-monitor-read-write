@@ -31,7 +31,7 @@ fuse.fuse_python_api = (0, 2)
 fuse.feature_assert("stateful_files", "has_init")
 
 
-lock = Lock()
+lock = Lock()  # Lock for csv_files.
 csv_files: dict[str, bytes] = {}
 
 
@@ -185,6 +185,10 @@ class MonitorReadWriteFile:
         if self.is_generated_csv:
             return 0  # Silently ignore writes.
 
+        # Write may increase filesize, so we perform it first before querying
+        # the filesize.
+        bytes_written = os.pwrite(self.fd, buf, offset)
+
         timestamp = get_timestamp()
         filesize = os.fstat(self.fd).st_size
         (pid, pname) = get_process_id_name()
@@ -202,7 +206,7 @@ class MonitorReadWriteFile:
                 ]
             )
 
-        return os.pwrite(self.fd, buf, offset)
+        return bytes_written
 
     def release(self, _flags: int) -> None:
         if self.is_generated_csv:
