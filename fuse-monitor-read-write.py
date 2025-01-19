@@ -161,38 +161,47 @@ class MonitorReadWriteFile:
             with lock:
                 tmp = csv_files[self.pathbase][offset : offset + length]
             return tmp
-        # TODO refactor out of lock (also below)
+
+        timestamp = get_timestamp()
+        filesize = os.fstat(self.fd).st_size
+        (pid, pname) = get_process_id_name()
+
         with lock:
-            (pid, pname) = get_process_id_name()
             csv_files[self.path] += to_csv(
                 [
-                    get_timestamp(),
+                    timestamp,
                     "read",
                     str(offset),
                     str(length),
-                    str(os.fstat(self.fd).st_size),
+                    str(filesize),
                     str(pid),
                     pname,
                 ]
             )
+
         return os.pread(self.fd, length, offset)
 
     def write(self, buf: bytes, offset: int) -> int:
         if self.is_generated_csv:
             return 0  # Silently ignore writes.
+
+        timestamp = get_timestamp()
+        filesize = os.fstat(self.fd).st_size
+        (pid, pname) = get_process_id_name()
+
         with lock:
-            (pid, pname) = get_process_id_name()
             csv_files[self.path] += to_csv(
                 [
-                    get_timestamp(),
+                    timestamp,
                     "write",
                     str(offset),
                     str(len(buf)),
-                    str(os.fstat(self.fd).st_size),
+                    str(filesize),
                     str(pid),
                     pname,
                 ]
             )
+
         return os.pwrite(self.fd, buf, offset)
 
     def release(self, _flags: int) -> None:
