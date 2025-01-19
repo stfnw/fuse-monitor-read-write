@@ -162,6 +162,10 @@ class MonitorReadWriteFile:
                 tmp = csv_files[self.pathbase][offset : offset + length]
             return tmp
 
+        # Requested read may be outside of the file size; in the CSV we
+        # report the actually read bytes.
+        bytes_read = os.pread(self.fd, length, offset)
+
         timestamp = get_timestamp()
         filesize = os.fstat(self.fd).st_size
         (pid, pname) = get_process_id_name()
@@ -172,14 +176,14 @@ class MonitorReadWriteFile:
                     timestamp,
                     "read",
                     str(offset),
-                    str(length),
+                    str(len(bytes_read)),
                     str(filesize),
                     str(pid),
                     pname,
                 ]
             )
 
-        return os.pread(self.fd, length, offset)
+        return bytes_read
 
     def write(self, buf: bytes, offset: int) -> int:
         if self.is_generated_csv:
