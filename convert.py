@@ -1,14 +1,16 @@
 #!/usr/bin/python3
 
-import argparse
-import matplotlib.pyplot as plt
-import numpy as np
 from dataclasses import dataclass
 from typing import Generator
+import argparse
 import csv
+import io
+import matplotlib.pyplot as plt
+import numpy as np
+import os
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Convert logged CSV files from fuse-monitor-read-write.py into diagrams"
     )
@@ -17,16 +19,12 @@ def main():
     args = parser.parse_args()
 
     with open(args.infile, "r") as f:
-        data = [dict(d) for d in csv.DictReader(f, delimiter=",", quotechar='"')]
+        csvdata = [dict(d) for d in csv.DictReader(f, delimiter=",", quotechar='"')]
 
-    filesize = max(int(d["Filesize"], 10) for d in data)
-
-    processes = sorted(
-        list(set(f"{d['ProcessName']} ({d['ProcessID']})" for d in data))
-    )
-
-    print(filesize)
-    print(processes)
+    filename = os.path.basename(args.infile).removesuffix(".csv")
+    heatmap = generate_heatmap(filename, csvdata)
+    with open(f"{args.outbase}-heatmap.png", "wb") as f:
+        f.write(heatmap)
 
 @dataclass
 class Range:
@@ -41,21 +39,27 @@ class Pixel:
     count: int
 
 
-def tmp():
-    length = 64
+def generate_heatmap(
+    filename: str, csvdata: list[dict[str, str]], sidelength_px: int = 64
+) -> bytes:
+    filesize = max(int(d["Filesize"], 10) for d in csvdata)
 
-    img = np.zeros(shape=(length, length), dtype=np.uint64)
+    processes = sorted(
+        list(set(f"{d['ProcessName']} ({d['ProcessID']})" for d in csvdata))
+    )
+
+    img = np.zeros(shape=(sidelength_px, sidelength_px), dtype=np.uint64)
 
     def map_chunks(rng: Range) -> Generator[Pixel]:
-        nbuckets = length * length
+        nbuckets = sidelength_px * sidelength_px
         bucketsize = filesize / nbuckets
 
         start = int(rng.offset / bucketsize)
         end = int((rng.offset + rng.length - 1) / bucketsize)
 
         for i in range(start, end + 1):
-            x = i % length
-            y = i // length
+            x = i % sidelength_px
+            y = i // sidelength_px
 
             # length of intersection of relevant intervals
             int1 = [i * bucketsize, (i + 1) * bucketsize]
@@ -65,8 +69,10 @@ def tmp():
 
             yield Pixel(x, y, count)
 
-    for op in data:
-        for px in map_chunks(Range(op[0], op[1])):
+    for op in csvdata:
+        offset_ = int(op["Offset"], 10)
+        length_ = int(op["Length"], 10)
+        for px in map_chunks(Range(offset_, length_)):
             img[px.y, px.x] += px.count
 
     fig = plt.figure(figsize=(10, 10))
@@ -86,10 +92,10 @@ def tmp():
         0.5,
         t_pos_y,
         (
-            f"Image width/height in pixels $w = {length}$\n"
-            + f"Number of image pixels $p = w \\cdot w = {length} \\cdot {length} = {length * length}$\n"
+            f"Image width/height in pixels $w = {sidelength_px}$\n"
+            + f"Number of image pixels $p = w \\cdot w = {sidelength_px} \\cdot {sidelength_px} = {sidelength_px * sidelength_px}$\n"
             + f"Filesize in bytes $s = {filesize}$\n"
-            + f"$\\Rightarrow$ Each pixel corresponds to a chunk of $b = {filesize//(length*length)}$ bytes\n"
+            + f"$\\Rightarrow$ Each pixel corresponds to a chunk of $b = {filesize//(sidelength_px*sidelength_px)}$ bytes\n"
             + "Pixel at position $(i,j)$ maps to byte region\n"
             + "    from inclusive $b (i \\cdot w + j)$\n"
             + "    to exclusive $b (i \\cdot w + j + 1)$"
@@ -105,8 +111,12 @@ def tmp():
     # TODO add filter by program name
     # TODO output list of program names and pids
 
-    # TODO adapt (e.g. BytesIO to get bytes)
-    plt.savefig("/tmp/test.png", dpi=150, bbox_inches="tight")
+    with io.BytesIO() as buf:
+        plt.savefig(buf, dpi=150, bbox_inches="tight")
+        buf.seek(0)
+        imgbytes = buf.read()
+
+    return imgbytes
 
 
 if __name__ == "__main__":
