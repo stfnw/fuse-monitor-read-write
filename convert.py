@@ -16,10 +16,21 @@ def main() -> None:
     )
     parser.add_argument("infile", help="Input CSV file")
     parser.add_argument("outbase", help="Basename of the output files (e.g. /tmp/out")
+    parser.add_argument(
+        "--processname",
+        help="Filter data and show only processes that contain 'processname'",
+    )
     args = parser.parse_args()
 
+    csvdata = []
     with open(args.infile, "r") as f:
-        csvdata = [dict(d) for d in csv.DictReader(f, delimiter=",", quotechar='"')]
+        for d in csv.DictReader(f, delimiter=",", quotechar='"'):
+            d = dict(d)
+            if args.processname is not None:
+                if args.processname in d["ProcessName"]:
+                    csvdata.append(d)
+            else:
+                csvdata.append(d)
 
     filename = os.path.basename(args.infile).removesuffix(".csv")
     heatmap = generate_heatmap(filename, csvdata)
@@ -45,7 +56,7 @@ def generate_heatmap(
     filesize = max(int(d["Filesize"], 10) for d in csvdata)
 
     processes = sorted(
-        list(set(f"{d['ProcessName']} ({d['ProcessID']})" for d in csvdata))
+        list(set(f"{d['ProcessName']} (pid {d['ProcessID']})" for d in csvdata))
     )
 
     img = np.zeros(shape=(sidelength_px, sidelength_px), dtype=np.uint64)
@@ -98,21 +109,21 @@ def generate_heatmap(
             + f"$\\Rightarrow$ Each pixel corresponds to a chunk of $b = {filesize//(sidelength_px*sidelength_px)}$ bytes\n"
             + "Pixel at position $(i,j)$ maps to byte region\n"
             + "    from inclusive $b (i \\cdot w + j)$\n"
-            + "    to exclusive $b (i \\cdot w + j + 1)$"
+            + "    to exclusive $b (i \\cdot w + j + 1)$\n"
+            + "\n"
+            + "Processes:"
+            + "".join([("\n  - " + p) for p in processes])
         ),
         ha="left",
-        va="center",
+        va="top",
         transform=plt.gca().transAxes,
     )
     t_bb = t.get_window_extent().transformed(plt.gca().transAxes.inverted())
     t_pos_x = (t_bb.x1 - t_bb.x0) / 2
     t.set_position((t_pos_x, t_pos_y))
 
-    # TODO add filter by program name
-    # TODO output list of program names and pids
-
     with io.BytesIO() as buf:
-        plt.savefig(buf, dpi=150, bbox_inches="tight")
+        plt.savefig(buf, dpi=300, bbox_inches="tight")
         buf.seek(0)
         imgbytes = buf.read()
 
