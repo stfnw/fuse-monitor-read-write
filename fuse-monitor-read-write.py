@@ -21,10 +21,10 @@ import os
 import stat
 import sys
 
+from typing import Any, Generator
+
 import fuse
 from fuse import Fuse
-
-from typing import Any, Generator
 
 
 fuse.fuse_python_api = (0, 2)

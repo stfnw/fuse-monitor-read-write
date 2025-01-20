@@ -2,12 +2,14 @@
 
 from dataclasses import dataclass
 from typing import Generator
+
 import argparse
 import csv
 import io
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 
 
 def main() -> None:
@@ -86,7 +88,7 @@ def generate_heatmap(
         for px in map_chunks(Range(offset_, length_)):
             img[px.y, px.x] += px.count
 
-    fig = plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(10, 10))
 
     plt.imshow(img, cmap="Greys", interpolation="nearest")
 
