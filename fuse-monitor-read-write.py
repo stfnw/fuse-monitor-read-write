@@ -273,11 +273,9 @@ def get_process_id_name() -> tuple[int, str]:
 
 
 def main() -> None:
-    usage = """TODO""" + Fuse.fusage
-
     server = MonitorReadWrite(
         version="%prog " + fuse.__version__,
-        usage=usage,
+        usage=Fuse.fusage,
         dash_s_do="setsingle",
     )
 

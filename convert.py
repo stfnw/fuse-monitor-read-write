@@ -63,29 +63,10 @@ def generate_heatmap(
 
     img = np.zeros(shape=(sidelength_px, sidelength_px), dtype=np.uint64)
 
-    def map_chunks(rng: Range) -> Generator[Pixel]:
-        nbuckets = sidelength_px * sidelength_px
-        bucketsize = filesize / nbuckets
-
-        start = int(rng.offset / bucketsize)
-        end = int((rng.offset + rng.length - 1) / bucketsize)
-
-        for i in range(start, end + 1):
-            x = i % sidelength_px
-            y = i // sidelength_px
-
-            # length of intersection of relevant intervals
-            int1 = [i * bucketsize, (i + 1) * bucketsize]
-            int2 = [rng.offset, rng.offset + rng.length]
-            intersection = [max(int1[0], int2[0]), min(int1[1], int2[1])]
-            count = int(intersection[1] - intersection[0])
-
-            yield Pixel(x, y, count)
-
     for op in csvdata:
         offset_ = int(op["Offset"], 10)
         length_ = int(op["Length"], 10)
-        for px in map_chunks(Range(offset_, length_)):
+        for px in map_chunks(Range(offset_, length_), sidelength_px, filesize):
             img[px.y, px.x] += px.count
 
     plt.figure(figsize=(10, 10))
@@ -130,6 +111,26 @@ def generate_heatmap(
         imgbytes = buf.read()
 
     return imgbytes
+
+
+def map_chunks(rng: Range, sidelength_px: int, filesize: int) -> Generator[Pixel]:
+    nbuckets = sidelength_px * sidelength_px
+    bucketsize = filesize / nbuckets
+
+    start = int(rng.offset / bucketsize)
+    end = int((rng.offset + rng.length - 1) / bucketsize)
+
+    for i in range(start, end + 1):
+        x = i % sidelength_px
+        y = i // sidelength_px
+
+        # length of intersection of relevant intervals
+        int1 = [i * bucketsize, (i + 1) * bucketsize]
+        int2 = [rng.offset, rng.offset + rng.length]
+        intersection = [max(int1[0], int2[0]), min(int1[1], int2[1])]
+        count = int(intersection[1] - intersection[0])
+
+        yield Pixel(x, y, count)
 
 
 if __name__ == "__main__":
