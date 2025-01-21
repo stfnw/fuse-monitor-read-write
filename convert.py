@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 from dataclasses import dataclass
-from typing import Generator
+from typing import Generator, Optional
 
 import argparse
 import csv
@@ -24,20 +24,28 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    csvdata = []
     with open(args.infile, "r") as f:
-        for d in csv.DictReader(f, delimiter=",", quotechar='"'):
-            d = dict(d)
-            if args.processname is not None:
-                if args.processname in d["ProcessName"]:
-                    csvdata.append(d)
-            else:
-                csvdata.append(d)
+        csvdata = get_csv_data(f.read(), args.processname)
 
     filename = os.path.basename(args.infile).removesuffix(".csv")
     heatmap = generate_heatmap(filename, csvdata)
     with open(f"{args.outbase}-heatmap.png", "wb") as f:
         f.write(heatmap)
+
+
+def get_csv_data(
+    input: str, processfilter: Optional[str] = None
+) -> list[dict[str, str]]:
+    csvdata = []
+    for d in csv.DictReader(io.StringIO(input), delimiter=",", quotechar='"'):
+        d = dict(d)
+        if processfilter is not None:
+            if processfilter in d["ProcessName"]:
+                csvdata.append(d)
+        else:
+            csvdata.append(d)
+    return csvdata
+
 
 @dataclass
 class Range:
