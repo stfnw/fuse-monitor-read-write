@@ -21,10 +21,12 @@ import os
 import stat
 import sys
 
-from typing import Any, Generator
+from typing import Any, Generator, Optional
 
 import fuse
 from fuse import Fuse
+
+import convert
 
 
 fuse.fuse_python_api = (0, 2)
@@ -65,6 +67,21 @@ class MonitorReadWrite(Fuse):
                 with lock:
                     st.st_size = len(csv_files[base]) if base in csv_files else 0
                 return st
+
+        elif path.endswith("-heatmap.png"):
+            base = path.removesuffix("-heatmap.png")
+            if len(base) > 1 and os.path.isfile("." + base):
+                st = fuse.Stat()
+                st.st_mode = stat.S_IFREG | 0o444
+                st.st_nlink = 1
+                # Dummy length (/proc seems to also do it similarly).
+                # This has the disadvantage that we cannot directly open it
+                # easily from the file explorer. But otherwise we would have to
+                # generate heatmaps for all files for the icon preview,
+                # which is too expensive.
+                st.st_size = 0
+                return st
+
         return os.lstat("." + path)
 
     def readlink(self, path: str) -> str:
@@ -75,6 +92,7 @@ class MonitorReadWrite(Fuse):
             yield fuse.Direntry(e)
             if os.path.isfile(e):
                 yield fuse.Direntry(e + ".csv")
+                yield fuse.Direntry(e + "-heatmap.png")
 
     def unlink(self, path: str) -> None:
         os.unlink("." + path)
@@ -130,6 +148,9 @@ class MonitorReadWriteFile:
     def __init__(self, path: str, flags: int, *mode: Any) -> None:
         self.path = path
 
+        self.is_generated_csv = False
+        self.is_generated_heatmap = False
+
         if path.endswith(".csv"):
             base = path.removesuffix(".csv")
             if len(base) > 1 and os.path.isfile("." + base):
@@ -137,8 +158,21 @@ class MonitorReadWriteFile:
                 self.pathbase = base
                 path = base
 
+        elif path.endswith("-heatmap.png"):
+            # Note that we have to set direct IO here because in `getattr` we
+            # reported the png file as having size 0.
+            # If we do not set direct IO the kernel will take the size 0 as the
+            # size to buffer and `read` will never actually be called when the
+            # file is later tried to be read.
+            self.direct_io = True
+            base = path.removesuffix("-heatmap.png")
+            if len(base) > 1 and os.path.isfile("." + base):
+                self.is_generated_heatmap = True
+                self.pathbase = base
+                path = base
+                self.heatmapdata: Optional[bytes] = None
+
         else:
-            self.is_generated_csv = False
             self.file = os.fdopen(os.open("." + path, flags, *mode), flag2mode(flags))
             self.fd = self.file.fileno()
 
@@ -159,8 +193,21 @@ class MonitorReadWriteFile:
     def read(self, length: int, offset: int) -> bytes:
         if self.is_generated_csv:
             with lock:
-                tmp = csv_files[self.pathbase][offset : offset + length]
-            return tmp
+                return csv_files[self.pathbase][offset : offset + length]
+
+        if self.is_generated_heatmap:
+            if self.heatmapdata is None:
+                with lock:
+                    tmp = csv_files[self.pathbase].decode("utf8")
+
+                if len(list(tmp.splitlines())) <= 1:
+                    # We do not actually have content yet, only the CSV header.
+                    # TODO fix: refactor to return empty diagram (but valid PNG).
+                    return b""
+
+                self.heatmapdata = convert.generate_heatmap(self.pathbase, tmp)
+
+            return self.heatmapdata[offset : offset + length]
 
         # Requested read may be outside of the file size; in the CSV we
         # report the actually read bytes.
@@ -186,7 +233,7 @@ class MonitorReadWriteFile:
         return bytes_read
 
     def write(self, buf: bytes, offset: int) -> int:
-        if self.is_generated_csv:
+        if self.is_generated_csv or self.is_generated_heatmap:
             return 0  # Silently ignore writes.
 
         # Write may increase filesize, so we perform it first before querying
@@ -213,18 +260,18 @@ class MonitorReadWriteFile:
         return bytes_written
 
     def release(self, _flags: int) -> None:
-        if self.is_generated_csv:
+        if self.is_generated_csv or self.is_generated_heatmap:
             return  # Silently ignore.
         self.file.close()
 
     def _fflush(self) -> None:
-        if self.is_generated_csv:
+        if self.is_generated_csv or self.is_generated_heatmap:
             return  # Silently ignore.
         if "w" in self.file.mode or "a" in self.file.mode:
             self.file.flush()
 
     def fsync(self, isfsyncfile: Any) -> None:
-        if self.is_generated_csv:
+        if self.is_generated_csv or self.is_generated_heatmap:
             return  # Silently ignore.
         self._fflush()
         if isfsyncfile and hasattr(os, "fdatasync"):
@@ -233,18 +280,18 @@ class MonitorReadWriteFile:
             os.fsync(self.fd)
 
     def flush(self) -> None:
-        if self.is_generated_csv:
+        if self.is_generated_csv or self.is_generated_heatmap:
             return  # Silently ignore.
         self._fflush()
         os.close(os.dup(self.fd))
 
     def fgetattr(self) -> os.stat_result:
-        if self.is_generated_csv:
+        if self.is_generated_csv or self.is_generated_heatmap:
             return os.stat(self.pathbase)
         return os.fstat(self.fd)
 
     def ftruncate(self, length: int) -> None:
-        if self.is_generated_csv:
+        if self.is_generated_csv or self.is_generated_heatmap:
             return  # Silently ignore.
         self.file.truncate(length)
 

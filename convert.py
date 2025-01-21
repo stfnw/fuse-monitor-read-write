@@ -18,33 +18,15 @@ def main() -> None:
     )
     parser.add_argument("infile", help="Input CSV file")
     parser.add_argument("outbase", help="Basename of the output files (e.g. /tmp/out")
-    parser.add_argument(
-        "--processname",
-        help="Filter data and show only processes that contain 'processname'",
-    )
     args = parser.parse_args()
 
     with open(args.infile, "r") as f:
-        csvdata = get_csv_data(f.read(), args.processname)
+        csvdata = f.read()
 
     filename = os.path.basename(args.infile).removesuffix(".csv")
     heatmap = generate_heatmap(filename, csvdata)
     with open(f"{args.outbase}-heatmap.png", "wb") as f:
         f.write(heatmap)
-
-
-def get_csv_data(
-    input: str, processfilter: Optional[str] = None
-) -> list[dict[str, str]]:
-    csvdata = []
-    for d in csv.DictReader(io.StringIO(input), delimiter=",", quotechar='"'):
-        d = dict(d)
-        if processfilter is not None:
-            if processfilter in d["ProcessName"]:
-                csvdata.append(d)
-        else:
-            csvdata.append(d)
-    return csvdata
 
 
 @dataclass
@@ -60,7 +42,20 @@ class Pixel:
     count: int
 
 
-def generate_heatmap(
+def generate_heatmap(filename: str, csvdata: str) -> bytes:
+    csvparsed = get_csv_data(csvdata)
+    return generate_heatmap_(filename, csvparsed)
+
+
+def get_csv_data(inp: str) -> list[dict[str, str]]:
+    csvdata = []
+    for d in csv.DictReader(io.StringIO(inp), delimiter=",", quotechar='"'):
+        d = dict(d)
+        csvdata.append(d)
+    return csvdata
+
+
+def generate_heatmap_(
     filename: str, csvdata: list[dict[str, str]], sidelength_px: int = 64
 ) -> bytes:
     filesize = max(int(d["Filesize"], 10) for d in csvdata)
