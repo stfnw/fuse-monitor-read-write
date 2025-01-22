@@ -8,8 +8,13 @@ import csv
 import io
 import os
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+
+# Use non-interactive backend to avoid "UserWarning: Starting a Matplotlib GUI
+# outside of the main thread will likely fail."
+matplotlib.use("agg")
 
 
 def main() -> None:
