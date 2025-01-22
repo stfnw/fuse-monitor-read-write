@@ -202,7 +202,6 @@ class MonitorReadWriteFile:
 
                 if len(list(tmp.splitlines())) <= 1:
                     # We do not actually have content yet, only the CSV header.
-                    # TODO fix: refactor to return empty diagram (but valid PNG).
                     return b""
 
                 self.heatmapdata = convert.generate_heatmap(self.pathbase, tmp)

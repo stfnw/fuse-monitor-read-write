@@ -19,10 +19,10 @@ matplotlib.use("agg")
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Convert logged CSV files from fuse-monitor-read-write.py into diagrams"
+        description="Convert logged CSV files from fuse-monitor-read-write.py into heatmap diagrams"
     )
     parser.add_argument("infile", help="Input CSV file")
-    parser.add_argument("outbase", help="Basename of the output files (e.g. /tmp/out")
+    parser.add_argument("outbase", help="Basename of the output file (e.g. /tmp/out)")
     args = parser.parse_args()
 
     with open(args.infile, "r") as f:
@@ -63,6 +63,9 @@ def get_csv_data(inp: str) -> list[dict[str, str]]:
 def generate_heatmap_(
     filename: str, csvdata: list[dict[str, str]], sidelength_px: int = 64
 ) -> bytes:
+    if not csvdata:
+        return b""
+
     filesize = max(int(d["Filesize"], 10) for d in csvdata)
 
     processes = sorted(
