@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fuse-monitor-read-write"
+version = "0.0.1"
+authors = [
+    { name="Stefan Walter ", email="stefan_walter@posteo.de" },
+]
+description = "A demo project monitoring file reads/writes via FUSE and generating heatmap diagrams for those accesses."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+    "Operating System :: POSIX :: Linux",
+]
+dependencies = [
+    "fuse-python",
+    "matplotlib",
+    "numpy",
+]
+
+[project.scripts]
+fuse-monitor-read-write = "fuse_monitor_read_write.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/stfnw/fuse-monitor-read-write"
+
+[tool.black]
+target-version = ["py37", "py38", "py39", "py310"]
+
+[tool.pylint]
+disable = [
+    "C0103",
+    "C0114",
+    "C0115",
+    "C0116",
+    "C0301",
+    "R0902",
+    "R0914",
+    "W1514",
+]
+
+[tool.mypy]
+files = "src"
+strict = true

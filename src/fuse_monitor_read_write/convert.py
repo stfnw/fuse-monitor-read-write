@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 from dataclasses import dataclass
-from typing import Generator, Optional
+from typing import Generator
 
 import argparse
 import csv
@@ -19,7 +19,7 @@ matplotlib.use("agg")
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Convert logged CSV files from fuse-monitor-read-write.py into heatmap diagrams"
+        description="Convert logged CSV files into heatmap diagrams"
     )
     parser.add_argument("infile", help="Input CSV file")
     parser.add_argument("outbase", help="Basename of the output file (e.g. /tmp/out)")

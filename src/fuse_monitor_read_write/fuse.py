@@ -19,14 +19,13 @@ import datetime
 import errno
 import os
 import stat
-import sys
 
 from typing import Any, Generator, Optional
 
 import fuse
 from fuse import Fuse
 
-import convert
+from fuse_monitor_read_write import convert
 
 
 fuse.fuse_python_api = (0, 2)
@@ -316,31 +315,3 @@ def get_process_id_name() -> tuple[int, str]:
     with open(f"/proc/{pid}/comm", "r") as f:
         pname = f.read().strip()
     return (pid, pname)
-
-
-def main() -> None:
-    server = MonitorReadWrite(
-        version="%prog " + fuse.__version__,
-        usage=Fuse.fusage,
-        dash_s_do="setsingle",
-    )
-
-    server.parse(values=server, errex=1)
-
-    try:
-        if server.fuse_args.mount_expected():
-            os.chdir(server.fuse_args.mountpoint)
-            # This trick with savefd allows mounting over an existing dir
-            # (compared to having to create a new directory only for the
-            # mountpoint). It is taken from
-            # https://github.com/rflament/loggedfs/blob/82aba9a93489797026ad1a37b637823ece4a7093/src/loggedfs.cpp#L953
-            server.savedrootfd = os.open(".", 0)
-    except OSError:
-        print("Can't enter root of underlying filesystem", file=sys.stderr)
-        sys.exit(1)
-
-    server.main()
-
-
-if __name__ == "__main__":
-    main()
