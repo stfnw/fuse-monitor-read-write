@@ -72,7 +72,7 @@ def generate_heatmap_(
         list(set(f"{d['ProcessName']} (pid {d['ProcessID']})" for d in csvdata))
     )
 
-    img = np.zeros(shape=(sidelength_px, sidelength_px), dtype=np.uint64)
+    img = np.zeros(shape=(sidelength_px, sidelength_px), dtype=np.float64)
 
     for op in csvdata:
         offset_ = int(op["Offset"], 10)
@@ -80,12 +80,28 @@ def generate_heatmap_(
         for px in map_chunks(Range(offset_, length_), sidelength_px, filesize):
             img[px.y, px.x] += px.count
 
+    # The following code solves the following problem:
+    # We have a very vide range of values we need to visualize, it can range
+    # from minimum 0 up to > 10000. Yet we nonetheless want to clearly
+    # distinguish no access at all (0) from at least one (1) access, while also
+    # showing gradual differences in higher values. With only linear
+    # interpolation from 0 to vmax, this difference is not visible.
+    # Therefore we map 0 -> 0, and then linearly interpolate the rest from
+    # 1 to vmax -> 0.2 (some visually distinguishable value) to 1.0.
+    oldmin, oldmax = 1, np.max(img)
+    if oldmax > 1:
+        newmin, newmax = 0.2, 1.0
+        f = (newmax - newmin) / (oldmax - oldmin)
+        img[img > 0] = newmin + (img[img > 0] - oldmin) * f
+
     plt.figure(figsize=(10, 10))
 
     plt.imshow(img, cmap="Greys", interpolation="nearest")
 
     cbar = plt.colorbar()
     cbar.set_label("Number of affected bytes in each pixel")
+    cbar.set_ticks([0, 1])
+    cbar.set_ticklabels(["0", str(int(oldmax))])
 
     plt.title(f"Number of reads of file '{filename}'")
 
