@@ -89,7 +89,7 @@ def generate_heatmap_(
     cbar = plt.colorbar()
     cbar.set_label("Number of affected bytes in each pixel")
 
-    plt.title(f"Number of reads of file '{filename}'")
+    plt.title(f"Number of reads of / writes to file '{filename}'")
 
     plt.ylabel("row (i)", fontweight="bold")
     plt.xlabel("column (j)", fontweight="bold")
