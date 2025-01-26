@@ -47,4 +47,36 @@ fusermount3 -u $DIR_TO_MONITOR
 
 # Demo
 
-TODO
+Here we show an example for file access made by `7z` when listing contents of the Debian Live ISO from https://www.debian.org/CD/live/:
+
+```
+python3 -m pipx install .
+fuse-monitor-read-write ~/Downloads/demo/
+mount | grep demo
+ls ~/Downloads/demo/
+7z l ~/Downloads/demo/debian-live.iso
+cat ~/Downloads/demo/debian-live.iso.csv
+cp -f ~/Downloads/demo/debian-live.iso-heatmap.png /tmp/
+file /tmp/debian-live.iso-heatmap.png
+```
+
+Terminal recording with asciinema:
+
+[![asciicast](https://asciinema.org/a/2cQm5BANJHEqREcmsPU0piWJl.svg)](https://asciinema.org/a/2cQm5BANJHEqREcmsPU0piWJl)
+
+<!--
+asciinema play -i 0.5 -s 2 demo/demo-iso-7z.cast
+-->
+
+Resulting heatmap:
+
+![demo/demo-iso-7z-heatmap.png](demo/demo-iso-7z-heatmap.png)
+
+As expected, accesses are concentrated in the beginning and end of the file.
+
+The generated files can be found in
+[demo/demo-iso-7z.cast](demo/demo-iso-7z.cast),
+[demo/demo-iso-7z.csv](demo/demo-iso-7z.csv) and
+[demo/demo-iso-7z-heatmap.png](demo/demo-iso-7z-heatmap.png).
+
+The [demo folder](demo/) also contains results of other examples.
