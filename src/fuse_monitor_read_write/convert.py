@@ -31,7 +31,7 @@ def main() -> None:
 
     filename = os.path.basename(args.infile).removesuffix(".csv")
     heatmap = generate_heatmap(filename, csvdata)
-    with open(f"{args.outbase}-heatmap.png", "wb") as f:
+    with open(f"{args.outbase}-heatmap.pdf", "wb") as f:
         f.write(heatmap)
 
 
@@ -119,7 +119,7 @@ def generate_heatmap_(
     t.set_position((t_pos_x, t_pos_y))
 
     with io.BytesIO() as buf:
-        plt.savefig(buf, dpi=300, bbox_inches="tight")
+        plt.savefig(buf, dpi=300, bbox_inches="tight", format="pdf")
         buf.seek(0)
         imgbytes = buf.read()
 

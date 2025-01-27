@@ -67,8 +67,8 @@ class MonitorReadWrite(Fuse):
                     st.st_size = len(csv_files[base]) if base in csv_files else 0
                 return st
 
-        elif path.endswith("-heatmap.png"):
-            base = path.removesuffix("-heatmap.png")
+        elif path.endswith("-heatmap.pdf"):
+            base = path.removesuffix("-heatmap.pdf")
             if len(base) > 1 and os.path.isfile("." + base):
                 st = fuse.Stat()
                 st.st_mode = stat.S_IFREG | 0o444
@@ -91,7 +91,7 @@ class MonitorReadWrite(Fuse):
             yield fuse.Direntry(e)
             if os.path.isfile(e):
                 yield fuse.Direntry(e + ".csv")
-                yield fuse.Direntry(e + "-heatmap.png")
+                yield fuse.Direntry(e + "-heatmap.pdf")
 
     def unlink(self, path: str) -> None:
         os.unlink("." + path)
@@ -157,14 +157,14 @@ class MonitorReadWriteFile:
                 self.pathbase = base
                 path = base
 
-        elif path.endswith("-heatmap.png"):
+        elif path.endswith("-heatmap.pdf"):
             # Note that we have to set direct IO here because in `getattr` we
-            # reported the png file as having size 0.
+            # reported the pdf file as having size 0.
             # If we do not set direct IO the kernel will take the size 0 as the
             # size to buffer and `read` will never actually be called when the
             # file is later tried to be read.
             self.direct_io = True
-            base = path.removesuffix("-heatmap.png")
+            base = path.removesuffix("-heatmap.pdf")
             if len(base) > 1 and os.path.isfile("." + base):
                 self.is_generated_heatmap = True
                 self.pathbase = base
