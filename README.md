@@ -34,7 +34,7 @@ This will shadow that directory and for each original file `$FILE` the following
 
   - `$FILE.csv`: A machine readable log of all reads and writes.
 
-  - `$FILE-heatmap.png`: An aggregated heatmap of all accesses to the original file.
+  - `$FILE-heatmap.pdf`: An aggregated heatmap of all accesses to the original file.
 
 These files exist only in-memory for the duration the filesystem is mounted.
 To preserve them permanently they can simply be copied out of the FUSE mountpoint.
@@ -60,6 +60,8 @@ cp -f ~/Downloads/demo/debian-live.iso-heatmap.png /tmp/
 file /tmp/debian-live.iso-heatmap.png
 ```
 
+*Note*: in newer versions PDF files are generated (not PNGs), which are vector graphics and also much smaller.
+
 Terminal recording with asciinema:
 
 [![asciicast](https://asciinema.org/a/2cQm5BANJHEqREcmsPU0piWJl.svg)](https://asciinema.org/a/2cQm5BANJHEqREcmsPU0piWJl)
@@ -76,7 +78,8 @@ As expected, accesses are concentrated in the beginning and end of the file.
 
 The generated files can be found in
 [demo/demo-iso-7z.cast](demo/demo-iso-7z.cast),
-[demo/demo-iso-7z.csv](demo/demo-iso-7z.csv) and
-[demo/demo-iso-7z-heatmap.png](demo/demo-iso-7z-heatmap.png).
+[demo/demo-iso-7z.csv](demo/demo-iso-7z.csv),
+[demo/demo-iso-7z-heatmap.png](demo/demo-iso-7z-heatmap.png), and
+[demo/demo-iso-7z-heatmap.pdf](demo/demo-iso-7z-heatmap.pdf).
 
 The [demo folder](demo/) also contains results of other examples.
