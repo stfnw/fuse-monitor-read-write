@@ -104,8 +104,8 @@ def generate_heatmap_(
             + f"Filesize in bytes $s = {filesize}$\n"
             + f"$\\Rightarrow$ Each pixel corresponds to a chunk of $b = {filesize//(sidelength_px*sidelength_px)}$ bytes\n"
             + "Pixel at position $(i,j)$ maps to byte region\n"
-            + "    from inclusive $b (i \\cdot w + j)$\n"
-            + "    to exclusive $b (i \\cdot w + j + 1)$\n"
+            + "    from inclusive $b (i w + j)$\n"
+            + "    to exclusive $b (i w + j + 1)$\n"
             + "\n"
             + "Processes:"
             + "".join([("\n  - " + p) for p in processes])
