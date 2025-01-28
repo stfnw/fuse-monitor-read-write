@@ -24,7 +24,7 @@ cd fuse-monitor-read-write
 python3 -m pipx install .
 ```
 
-The mount the filesystem over an existing directory you want to monitor:
+Then mount the filesystem over an existing directory you want to monitor:
 
 ```
 fuse-monitor-read-write $DIR_TO_MONITOR
