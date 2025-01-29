@@ -7,3 +7,12 @@ Using Debian Live ISO image from https://cdimage.debian.org/debian-cd/current-li
 ```
 7z l debian-live.iso
 ```
+
+# demo-bigbuckbunny
+
+From https://download.blender.org/peach/bigbuckbunny_movies/
+
+```
+# identify magic bytes using `file`
+file --keep-going big_buck_bunny_720p_h264.mov
+```
