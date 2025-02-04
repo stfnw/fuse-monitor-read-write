@@ -29,3 +29,7 @@ file --keep-going linux-6.13-rc6.tar.gz
 # list contents
 tar -vztf         linux-6.13-rc6.tar.gz
 ```
+
+# demo-bigbuckbunny-ffprobe
+
+File identification using ffmpeg's `ffprobe`.
