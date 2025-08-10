@@ -1,5 +1,9 @@
 Visualize file reads and file writes.
 
+> [!NOTE]
+> Note that this is only a quick hobby project and not particularly (read: not at all) stable or safe.
+> Use at your own risk and don't expect anything.
+
 # What is this?
 
 This is a fuse passthrough filesystem that monitors/logs read and write access to files.
