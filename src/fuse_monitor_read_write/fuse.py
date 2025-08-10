@@ -86,7 +86,7 @@ class MonitorReadWrite(Fuse):
     def readlink(self, path: str) -> str:
         return os.readlink("." + path)
 
-    def readdir(self, path: str, _offset: int) -> Generator[fuse.Direntry]:
+    def readdir(self, path: str, _offset: int) -> Generator[fuse.Direntry, None, None]:
         for e in os.listdir("." + path):
             yield fuse.Direntry(e)
             if os.path.isfile(e):

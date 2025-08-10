@@ -152,7 +152,7 @@ class CustomNorm(mcolors.Normalize):
         return normed
 
 
-def map_chunks(rng: Range, sidelength_px: int, filesize: int) -> Generator[Pixel]:
+def map_chunks(rng: Range, sidelength_px: int, filesize: int) -> Generator[Pixel, None, None]:
     nbuckets = sidelength_px * sidelength_px
     bucketsize = filesize / nbuckets
 
